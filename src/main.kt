@@ -1,50 +1,49 @@
-
-
 abstract class User(
     val id: Int,
     val listName: String,
-    val name: String,
-    val birthDay: String,
-    val email: String,
-    private val password: String
+    val name: String
 ) {
+    val birthDay: String = ""
+    val email: String = ""
+    val password: String = ""
+
     fun getFIO() = "$listName $name"
-    fun login(pwd: String): Boolean {
-        val success = pwd == password
-        if (success) println(" ${getFIO()} вошёл в систему.")
-        else println(" Неверный пароль.")
-        return success
-    }
-    fun logout() = println(" ${getFIO()} завершил сеанс.")
 }
 
 class Student(
-    id: Int, listName: String, name: String, birthDay: String, email: String, pwd: String,
+    id: Int, listName: String, name: String,
     val group: String, val course: Int, val studyForm: String
-) : User(id, listName, name, birthDay, email, pwd)
+) : User(id, listName, name) {
+
+    fun viewSchedule(schedule: Schedule) {
+        println("Расписание для группы $group:")
+        schedule.getItems().forEach { println("  - $it") }
+    }
+}
 
 class Teacher(
-    id: Int, listName: String, name: String, birthDay: String, email: String, pwd: String,
+    id: Int, listName: String, name: String,
     val position: String, val department: String
-) : User(id, listName, name, birthDay, email, pwd) {
+) : User(id, listName, name) {
+
     fun setGrade(record: AcademicRecordItem, grade: Int) = record.review(grade)
+
     fun markPresence(record: AcademicRecordItem) = println("Преподаватель отметил посещение.")
 }
 
 class Admin(
-    id: Int, listName: String, name: String, birthDay: String, email: String, pwd: String,
+    id: Int, listName: String, name: String,
     val faculty: String
-) : User(id, listName, name, birthDay, email, pwd) {
+) : User(id, listName, name) {
+
     fun addSchedule(schedule: Schedule, item: ScheduleItem) {
         schedule.addItem(item)
-        println("Администратор добавил элемент в расписание.")
     }
+
     fun addNews(feed: NewsFeed, item: NewsItem) {
         feed.addItem(item)
-        println("Администратор опубликовал новость.")
     }
 }
-
 
 class Schedule {
     private val items = mutableListOf<ScheduleItem>()
@@ -72,7 +71,6 @@ class AcademicJournal {
     fun getRecords() = records.toList()
 }
 
-
 enum class RecordState { CREATED, WAITING_SUBMISSION, UNDER_REVIEW, GRADE_ASSIGNED, WAITING_RETAKE, COMPLETED, DISMISSED }
 
 class AcademicRecordItem(val student: Student, val subject: String) {
@@ -94,7 +92,10 @@ class AcademicRecordItem(val student: Student, val subject: String) {
     }
 
     fun review(grade: Int) {
-        if (state != RecordState.UNDER_REVIEW) { println("Нельзя выставить оценку сейчас."); return }
+        if (state != RecordState.UNDER_REVIEW) {
+            println("Нельзя выставить оценку сейчас.")
+            return
+        }
         this.grade = grade
         attempts++
         state = RecordState.GRADE_ASSIGNED
@@ -110,7 +111,7 @@ class AcademicRecordItem(val student: Student, val subject: String) {
             }
             attempts < 3 -> {
                 state = RecordState.WAITING_RETAKE
-                println("Оценка < 3. Попыток осталось: ${3 - attempts}. Переход в пересдача.")
+                println("Оценка < 3. Осталось попыток: ${3 - attempts}. Переход в пересдачу.")
             }
             else -> {
                 state = RecordState.DISMISSED
@@ -127,41 +128,40 @@ class AcademicRecordItem(val student: Student, val subject: String) {
     }
 }
 
-
 fun main() {
-    println("Система 'Обучение студента в университете'")
-    val admin = Admin(1, "Иванов", "Админ", "01.01.1980", "admin@uni.ru", "admin123", "ФИТ")
-    val teacher = Teacher(2, "Петров", "Препод", "05.05.1975", "petrov@uni.ru", "teach123", "Доцент", "Каф. ПО")
-    val student = Student(3, "Сидоров", "Студент", "12.12.2000", "sid@uni.ru", "stud123", "ПО-101", 2, "Очная")
+    val admin = Admin(1, "Иванов", "Админ", "ФИТ")
+    val teacher = Teacher(2, "Петров", "Алексей", "Доцент", "Каф. ПО")
+    val teacher2 = Teacher(4, "Кузнецов", "Сергей", "Профессор", "Каф. Математики")
+    val student = Student(3, "Сидоров", "Студент", "ПО-101", 2, "Очная")
 
     val schedule = Schedule()
     val newsFeed = NewsFeed()
     val journal = AcademicJournal()
 
-
     admin.addSchedule(schedule, ScheduleItem("ТСПП", "Пн", "305", teacher))
-    admin.addNews(newsFeed, NewsItem("Каникулы", "Зимние каникулы с 20.12", "10.12.2023"))
+    admin.addSchedule(schedule, ScheduleItem("Математика", "Вт", "201", teacher2))
 
     val record = AcademicRecordItem(student, "ТСПП")
     journal.addRecord(record)
 
     while (true) {
         println("\nТекущее состояние заявки: ${record.state}")
-        println("1. Сдать работу (студент)")
-        println("2. Выставить оценку (преподаватель)")
-        println("3. Начать пересдачу")
-        println("4. Выйти")
+        println("1. Сдать работу")
+        println("2. Посмотреть расписание")
+        println("3. Выставить оценку")
+        println("4. Начать пересдачу")
+        println("5. Выйти")
         print("Выбор: ")
         when (readlnOrNull()?.trim()) {
             "1" -> record.submit()
-            "2" -> {
+            "2" -> student.viewSchedule(schedule)
+            "3" -> {
                 print("Введите оценку (2-5): ")
                 readlnOrNull()?.toIntOrNull()?.let { teacher.setGrade(record, it) }
             }
-            "3" -> record.startRetake()
-            "4" -> break
+            "4" -> record.startRetake()
+            "5" -> break
             else -> println("Неверный ввод")
-            // Диаграмма состояний реализована согласно ЛР3
         }
     }
 }
